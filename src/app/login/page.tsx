@@ -1,58 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Zap, Mail, Lock, ArrowRight, Wand2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Zap, Mail, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useToast } from "@/components/ui/Toast";
 
-// Import Firebase Auth
-import { auth } from "@/lib/firebase/config";
-import { sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { error: toastError, success: toastSuccess } = useToast();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isMagicLinkLoading, setIsMagicLinkLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [isEmailSent, setIsEmailSent] = useState(false);
-
-  // Handle incoming Magic Link
-  useEffect(() => {
-    const handleEmailLinkSignIn = async () => {
-      if (isSignInWithEmailLink(auth, window.location.href)) {
-        setIsLoading(true);
-        let storedEmail = window.localStorage.getItem("emailForSignIn");
-        
-        if (!storedEmail) {
-          storedEmail = window.prompt("Please provide your email for confirmation");
-        }
-
-        if (storedEmail) {
-          try {
-            const result = await signInWithEmailLink(auth, storedEmail, window.location.href);
-            window.localStorage.removeItem("emailForSignIn");
-            toastSuccess("Welcome!", "Successfully signed in with Magic Link.");
-            router.push("/dashboard");
-          } catch (error: any) {
-            toastError("Sign In Failed", error.message || "Invalid or expired link.");
-            setErrorMsg(error.message);
-          }
-        }
-        setIsLoading(false);
-      }
-    };
-
-    handleEmailLinkSignIn();
-  }, [router, toastError, toastSuccess]);
 
   // Standard Password Login
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,36 +56,6 @@ export default function LoginPage() {
     }
   };
 
-  // Firebase Magic Link Login
-  const handleMagicLink = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!email) {
-      toastError("Email Required", "Please enter your email to receive a magic link.");
-      return;
-    }
-
-    setIsMagicLinkLoading(true);
-    setErrorMsg("");
-
-    const actionCodeSettings = {
-      // URL you want to redirect back to. Ensure this domain is authorized in Firebase Console.
-      url: window.location.origin + '/login',
-      handleCodeInApp: true,
-    };
-
-    try {
-      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-      window.localStorage.setItem('emailForSignIn', email);
-      setIsEmailSent(true);
-      toastSuccess("Email Sent!", "Check your inbox for the magic sign-in link.");
-    } catch (error: any) {
-      setErrorMsg(error.message || "Failed to send magic link.");
-      toastError("Error", "Could not send magic link.");
-    } finally {
-      setIsMagicLinkLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#090A0F] flex flex-col justify-center items-center p-4 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/10 blur-[140px] pointer-events-none rounded-full" />
@@ -152,65 +87,40 @@ export default function LoginPage() {
             </div>
           )}
 
-          {isEmailSent ? (
-            <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-sm text-center">
-              We&apos;ve sent a magic link to <strong>{email}</strong>. Please check your inbox and click the link to sign in.
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              leftIcon={<Mail className="w-4 h-4" />}
+            />
+
+            <div className="space-y-1">
               <Input
-                label="Email Address"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                label="Password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
-                leftIcon={<Mail className="w-4 h-4" />}
+                leftIcon={<Lock className="w-4 h-4" />}
               />
+            </div>
 
-              <div className="space-y-1">
-                <Input
-                  label="Password (Optional for Magic Link)"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  leftIcon={<Lock className="w-4 h-4" />}
-                />
-              </div>
-
-              <div className="flex flex-col gap-3 pt-2">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="w-full"
-                  size="lg"
-                  isLoading={isLoading && !isSignInWithEmailLink(auth, window.location.href)}
-                  icon={<ArrowRight className="w-4 h-4" />}
-                >
-                  Sign In with Password
-                </Button>
-
-                <div className="relative flex items-center py-2">
-                  <div className="flex-grow border-t border-white/[0.08]"></div>
-                  <span className="flex-shrink-0 mx-4 text-xs text-neutral-500">OR</span>
-                  <div className="flex-grow border-t border-white/[0.08]"></div>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleMagicLink}
-                  className="w-full border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-400"
-                  size="lg"
-                  isLoading={isMagicLinkLoading}
-                  icon={<Wand2 className="w-4 h-4" />}
-                >
-                  Sign In with Magic Link
-                </Button>
-              </div>
-            </form>
-          )}
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full mt-2"
+              size="lg"
+              isLoading={isLoading}
+              icon={<ArrowRight className="w-4 h-4" />}
+            >
+              Sign In
+            </Button>
+          </form>
 
           <div className="pt-4 border-t border-white/[0.08] text-center text-xs text-neutral-400">
             Don&apos;t have an account?{" "}
