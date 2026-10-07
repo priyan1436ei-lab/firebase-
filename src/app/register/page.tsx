@@ -9,9 +9,6 @@ import { Input } from "@/components/ui/Input";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useToast } from "@/components/ui/Toast";
 
-import { auth, db } from "@/lib/firebase/config";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { ref, set } from "firebase/database";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -47,25 +44,19 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // 1. Create User in Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // 2. Update their display name in Firebase Auth
-      await updateProfile(userCredential.user, {
-        displayName: name
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, confirmPassword }),
       });
+      const data = await response.json();
 
-      // 3. Step 2 - Realtime Database: Create user profile
-      const uid = userCredential.user.uid;
-      await set(ref(db, `users/${uid}/profile`), {
-        name: name,
-        email: email,
-        age: 0, // Placeholder values for onboarding
-        height: 0,
-        weight: 0,
-        fitnessGoal: "Not set",
-        createdAt: Date.now()
-      });
+      if (!response.ok) {
+        const message = data.error || "Registration failed. Please try again.";
+        setErrorMsg(message);
+        toastError("Registration Failed", message);
+        return;
+      }
 
       toastSuccess("Account Created!", "Proceeding to personalized fitness onboarding...");
       router.push("/onboarding");
